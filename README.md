@@ -1,6 +1,8 @@
-# Codex Profiles CLI
+# Agent Profiles
 
 Manage separate Codex CLI accounts on **Windows, Linux, and WSL** with one `CODEX_HOME` per profile. It has no external dependencies and requires **Node.js 22+** and npm. These profiles represent separate accounts and home directories; they are different from `codex --profile` configuration profiles.
+
+Agent Profiles currently supports **Codex only**. Support for **OpenCode** and **Claude** is planned for future releases.
 
 ## Installation
 
@@ -9,6 +11,8 @@ Install Node.js, npm, and the Codex CLI in the environment where you will run th
 ```sh
 npm install -g --allow-git=all git+https://github.com/alexishida/codex-profiles-cli.git
 ```
+
+The package and command are named `agent-profiles`. The installation URL uses the repository's existing name.
 
 For a local checkout, run this from the project directory instead:
 
@@ -21,7 +25,7 @@ Verify the installation:
 ```sh
 node --version
 codex --version
-codex-profile help
+agent-profiles help
 ```
 
 On Windows, the CLI supports `codex.exe` and the official `@openai/codex` npm installation through `codex.cmd`. The npm launcher runs directly through Node.js, which preserves arguments without passing them through `cmd.exe`. Custom `.cmd` launchers are not supported.
@@ -30,24 +34,35 @@ On Linux and WSL, install native Linux Node.js, npm, and Codex. In WSL, Codex in
 
 ## Usage
 
-These commands work in PowerShell, Bash, and Zsh:
+Commands use the format `agent-profiles codex COMMAND`. The `codex` subcommand selects the agent being managed; it is currently the only supported agent. These commands work in PowerShell, Bash, and Zsh:
+
+All profile operations now require the `codex` subcommand. Update existing scripts and shell integration entries accordingly. Existing profiles and storage locations are preserved.
 
 ```sh
-codex-profile create personal          # creates a profile and starts codex login
-codex-profile create work
-codex-profile list
-codex-profile use work
-codex-profile exec                     # starts Codex with the active account
-codex-profile run personal -- --version
-codex-profile current
-codex-profile login personal
-codex-profile run work -- login status
-codex-profile run work -- login --device-auth
-codex-profile create test --no-login
-codex-profile remove test --force      # removes this profile's data
+agent-profiles codex create personal          # creates a profile and starts codex login
+agent-profiles codex create work
+agent-profiles codex list
+agent-profiles codex use work
+agent-profiles codex exec                     # starts Codex with the active account
+agent-profiles codex run personal -- --version
+agent-profiles codex current
+agent-profiles codex login personal
+agent-profiles codex run work -- login status
+agent-profiles codex run work -- login --device-auth
+agent-profiles codex create test --no-login
+agent-profiles codex remove test --force      # removes this profile's data
+agent-profiles codex help
 ```
 
 `run` does not change the active profile. `use` affects only new sessions. Each name can contain up to 64 ASCII letters, numbers, `_`, or `-`, and must begin with a letter or number. Windows reserved names such as `CON`, `NUL`, and `COM1`, as well as duplicates that differ only by letter case, are rejected on every platform. Use the exact spelling shown by `list`.
+
+To remove all Codex profiles managed by Agent Profiles:
+
+```sh
+agent-profiles codex remove-all --force
+```
+
+This deletes every registered Codex profile and its stored data, then clears the active profile. The `--force` confirmation is required. Unregistered directories and the default Codex home are not deleted. Running it again when no profiles remain succeeds without further deletion. All targets are validated before removal, and directories are restored if moving a target or saving the state fails.
 
 ## Shell integration
 
@@ -56,41 +71,45 @@ To run `codex` with the active account, add the integration to your shell startu
 **Bash** (`~/.bashrc`):
 
 ```sh
-eval "$(codex-profile shell-init bash)"
+eval "$(agent-profiles codex shell-init bash)"
 ```
 
 **Zsh** (`~/.zshrc`):
 
 ```sh
-eval "$(codex-profile shell-init zsh)"
+eval "$(agent-profiles codex shell-init zsh)"
 ```
 
 **PowerShell** (`$PROFILE`, including Windows PowerShell 5.1 and PowerShell 7):
 
 ```powershell
-codex-profile shell-init powershell | Out-String | Invoke-Expression
+agent-profiles codex shell-init powershell | Out-String | Invoke-Expression
 ```
 
-Create `$PROFILE` if it does not exist, then reopen the terminal. The integration replaces an existing `codex` function. If you already have a `codex` alias, remove it with `Remove-Item Alias:codex`. Sessions retain the terminal's current working directory and environment variables.
+Create `$PROFILE` if it does not exist, then reopen the terminal. Replace any previous `codex-profile shell-init` entry with the new command. The integration replaces an existing `codex` function. If you already have a `codex` alias, remove it with `Remove-Item Alias:codex`. Sessions retain the terminal's current working directory and environment variables.
 
-Command Prompt (`cmd.exe`) can run `codex-profile` commands, but it does not support `shell-init`; use `codex-profile exec` instead.
+The PowerShell integration serializes arguments before calling the npm launcher, preserving empty strings, quotes, Unicode, and trailing backslashes on Windows PowerShell 5.1 and PowerShell 7. On PowerShell 5.1, use the integrated `codex` function for arguments requiring this preservation; direct native command calls follow PowerShell's legacy argument handling.
+
+Command Prompt (`cmd.exe`) can run `agent-profiles` commands, but it does not support `shell-init`; use `agent-profiles codex exec` instead.
 
 ## Storage
 
 | Environment | State | Profile directories |
 | --- | --- | --- |
-| Windows | `%APPDATA%\codex-profiles\state.json` | `%LOCALAPPDATA%\codex-profiles\profiles\NAME` |
-| Linux / WSL | `~/.config/codex-profiles/state.json` | `~/.local/share/codex-profiles/profiles/NAME` |
+| Windows | `%APPDATA%\agent-profiles\state.json` | `%LOCALAPPDATA%\agent-profiles\profiles\NAME` |
+| Linux / WSL | `~/.config/agent-profiles/state.json` | `~/.local/share/agent-profiles/profiles/NAME` |
 
-`XDG_CONFIG_HOME` and `XDG_DATA_HOME` override these roots on all platforms and must be absolute paths. Keep them consistent between sessions; changing only one root can invalidate saved paths. On Windows, prior installations at `~/.config` and `~/.local/share` remain in use when their old state file exists and no state file exists in the new location.
+`XDG_CONFIG_HOME` and `XDG_DATA_HOME` override these roots on all platforms and must be absolute paths. Keep them consistent between sessions; changing only one root can invalidate saved paths. If no state exists under `agent-profiles`, existing `codex-profiles` storage is reused, including the older Windows locations at `~/.config` and `~/.local/share`. Existing home paths and credentials are preserved. New installations use the paths in the table.
 
 On Linux and WSL, managed directories use `0700` and the state file uses `0600`. On Windows, protection comes from the inherited ACLs on the user directory; POSIX modes do not configure Windows ACLs. Profile directories and managed roots that are symbolic links or junctions are rejected.
 
-State is validated before use and replaced by renaming a temporary file. Concurrent modifications use `state.lock`: a competing operation can fail and ask you to retry without overwriting the other change. If an interrupted process leaves a lock, confirm that no `codex-profile` process is making changes before removing the file named in the error. Help and shell integration remain available when state is corrupted.
+State is validated before use and replaced by renaming a temporary file. Concurrent modifications use `state.lock`: a competing operation can fail and ask you to retry without overwriting the other change. If an interrupted process leaves a lock, confirm that no `agent-profiles` process is making changes before removing the file named in the error. Help and shell integration remain available when state is corrupted.
 
-Codex stores configuration, history, and credentials in files or the operating system credential store, depending on its configuration. `cli_auth_credentials_store = "file"` stores `auth.json` in the profile's `CODEX_HOME`. With `keyring` or `auto`, removing a profile directory might not remove credentials held by the operating system credential store; run `codex-profile run NAME -- logout` before removal. Inherited authentication variables and organization policies can also affect the account used. See the [official authentication documentation](https://learn.chatgpt.com/docs/auth).
+Removal first moves the profile to a temporary `.removed-*` directory. If saving the updated state fails, the profile directory is restored. If deleting the staged data fails after the state is saved, the error reports its remaining location. An interrupted removal can also leave a `.removed-*` directory; inspect it and the state before recovering or deleting those files.
 
-Do not share profile directories: they can contain tokens. A failed login leaves the profile available for another attempt with `codex-profile login NAME`.
+Codex stores configuration, history, and credentials in files or the operating system credential store, depending on its configuration. `cli_auth_credentials_store = "file"` stores `auth.json` in the profile's `CODEX_HOME`. With `keyring` or `auto`, removing a profile directory might not remove credentials held by the operating system credential store; run `agent-profiles codex run NAME -- logout` before removal. Inherited authentication variables and organization policies can also affect the account used. See the [official authentication documentation](https://learn.chatgpt.com/docs/auth).
+
+Do not share profile directories: they can contain tokens. A failed login leaves the profile available for another attempt with `agent-profiles codex login NAME`.
 
 ## Validation
 
@@ -99,8 +118,8 @@ npm run check
 npm test
 ```
 
-Tests use temporary directories and a simulated Codex executable. They validate profile isolation, arguments, exit codes, invalid state, concurrent writes, symbolic links, POSIX permissions, and installation from a `.tgz` package into a temporary prefix. Shell integration runs in PowerShell on Windows and Bash/Zsh on Linux when available. No test signs in to a real account.
+Tests use temporary directories and a simulated Codex executable. They validate profile isolation, arguments, exit codes, invalid state, concurrent writes, symbolic links, POSIX permissions, legacy storage compatibility, removal failures, and installation from a `.tgz` package into a temporary prefix. Windows shell integration is tested through the installed npm launcher in PowerShell 5.1 and PowerShell 7 when available. Bash/Zsh integration is tested on Linux when available. No test signs in to a real account.
 
-The CI matrix covers Windows and Ubuntu with Node.js 22, 24, 26, and `node` (the latest stable version). The minimum supported version is Node.js 22. Use a maintained release such as Node.js 22/24 LTS or 26 Current, according to the [official release list](https://nodejs.org/en/about/previous-releases). Your installed Codex version can have its own runtime requirements.
+The minimum supported version is Node.js 22. Check the [official release list](https://nodejs.org/en/about/previous-releases) for maintained releases. Your installed Codex version can have its own runtime requirements.
 
-Local validation on October 13, 2026 used Node.js 22.23.3, 24.21.0, and 26.11.1 on Windows and Ubuntu/WSL. Each combination passed 16 tests, with one test restricted to the other platform skipped. Real `--version` calls also ran through the npm Codex launcher and `codex.exe` on Windows, and the Linux Codex installation in WSL, with temporary profiles. Native Linux outside WSL is covered by CI but was not run locally, and no real login was performed.
+Run the validation commands in each target environment before releasing. Platform-specific tests are skipped when their required platform is unavailable.
