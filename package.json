@@ -1,0 +1,14 @@
+{
+  "name": "codex-profiles-cli-local",
+  "version": "0.0.1",
+  "author": {
+    "name": "Alex Ishida",
+    "email": "alexishida@gmail.com"
+  },
+  "private": true,
+  "type": "module",
+  "bin": { "codex-profile": "./bin/codex-profile.mjs" },
+  "files": ["bin/", "lib/", "README.md"],
+  "engines": { "node": ">=22" },
+  "scripts": { "test": "node --test", "check": "node --check bin/codex-profile.mjs && node --check lib/store.mjs && node --check lib/codex.mjs" }
+}
