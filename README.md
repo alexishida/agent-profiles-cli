@@ -9,7 +9,7 @@ Agent Profiles currently supports **Codex only**. Support for **OpenCode** and *
 Install Node.js, npm, and the Codex CLI in the environment where you will run the commands. Install directly from GitHub:
 
 ```sh
-npm install -g --allow-git=all git+https://github.com/alexishida/codex-profiles-cli.git
+npm install -g --allow-git=all git+https://github.com/alexishida/agent-profiles-cli.git
 ```
 
 The package and command are named `agent-profiles`. The installation URL uses the repository's existing name.
