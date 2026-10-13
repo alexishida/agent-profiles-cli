@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
 const packageMetadata = require('../package.json');
 const author = typeof packageMetadata.author === 'string' ? packageMetadata.author : packageMetadata.author?.name;
+const packageRoot = fileURLToPath(new URL('../', import.meta.url));
 
 const usage = `Agent Profiles — Codex account manager for Windows, Linux, and WSL
 
@@ -24,6 +26,7 @@ Usage:
   agent-profiles codex shell-init bash|zsh|powershell
                                                      Prints shell integration code
   agent-profiles codex help                          Shows Codex command help
+  agent-profiles update                              Installs the latest commit from main
   agent-profiles help                                Shows this help`;
 
 function shellInit(shell) {
@@ -47,6 +50,13 @@ function codex() {
 
 async function main() {
   const [agent = 'help', ...agentArgs] = process.argv.slice(2);
+  if (agent === 'update') {
+    if (agentArgs.length) throw new Error('usage: agent-profiles update');
+    const { Updater } = await import('../lib/update.mjs');
+    const result = await new Updater({ packageRoot }).update();
+    console.log(`Agent Profiles updated from main (${result.commit.slice(0, 12)}).`);
+    return;
+  }
   if (['help', '-h', '--help'].includes(agent)) {
     if (agentArgs.length) throw new Error('usage: agent-profiles help');
     console.log(usage);
@@ -99,6 +109,19 @@ async function main() {
 
   const { Store } = await import('../lib/store.mjs');
   const store = new Store();
+  if (['create', 'use', 'remove', 'run'].includes(action) || (action === 'login' && args.length)) store.validName(args[0]);
+  if (process.env.AGENT_PROFILES_AUTO_UPDATE !== '0') {
+    const { Updater, restartUpdatedCommand } = await import('../lib/update.mjs');
+    let result;
+    try { result = await new Updater({ packageRoot }).update({ automatic: true }); } catch (err) {
+      if (err.code === 'UPDATE_BUSY') throw err;
+      console.error(`Warning: automatic update failed: ${err.message} Run agent-profiles update to retry.`);
+    }
+    if (result?.status === 'updated') {
+      process.exitCode = await restartUpdatedCommand(result.entry, process.argv.slice(2));
+      return;
+    }
+  }
   if (action === 'remove-all') {
     store.update(state => {
       const count = Object.keys(state.profiles).length;
@@ -111,7 +134,6 @@ async function main() {
     });
     return;
   }
-  if (['create', 'use', 'remove', 'run'].includes(action) || (action === 'login' && args.length)) store.validName(args[0]);
   if (['create', 'use', 'remove'].includes(action)) {
     const { default: fs } = await import('node:fs');
     store.update(state => {

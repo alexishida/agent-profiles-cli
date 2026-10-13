@@ -9,7 +9,7 @@ Agent Profiles currently supports **Codex only**. Support for **OpenCode** and *
 Install Node.js, npm, and the Codex CLI in the environment where you will run the commands. Install directly from GitHub:
 
 ```sh
-npm install -g --allow-git=all git+https://github.com/alexishida/agent-profiles-cli.git
+npm install -g --allow-git=all "git+https://github.com/alexishida/agent-profiles-cli.git#main"
 ```
 
 The package and command are named `agent-profiles`. The installation URL uses the repository's existing name.
@@ -31,6 +31,32 @@ agent-profiles help
 On Windows, the CLI supports `codex.exe` and the official `@openai/codex` npm installation through `codex.cmd`. The npm launcher runs directly through Node.js, which preserves arguments without passing them through `cmd.exe`. Custom `.cmd` launchers are not supported.
 
 On Linux and WSL, install native Linux Node.js, npm, and Codex. In WSL, Codex installations in `/mnt/c`, `/mnt/d`, and other Windows drives are ignored to avoid mixing Windows executables and credentials with Linux. Windows and WSL use independent installations and active profiles. Use `command -v node` and `type -a codex` to verify your setup. Make sure global npm binaries are on `PATH`; if npm requires `sudo`, configure a user prefix or a Node.js version manager.
+
+## Updates
+
+Force a self-update from the latest commit on `main`:
+
+```sh
+agent-profiles update
+```
+
+Global installations check `refs/heads/main` before valid Codex profile commands. When the commit changes, Agent Profiles installs that exact commit into the same npm prefix and restarts the requested command with the original arguments. Commit hashes are compared even when the package version has not changed. Releases and tags are not used. The branch is resolved with [Git](https://git-scm.com/docs/git-ls-remote) and its commit is installed using [npm's Git package format](https://docs.npmjs.com/cli/v11/commands/npm-install/).
+
+Git, npm, internet access, and write permission to the installation prefix are required. If an automatic check or installation fails, a warning is written to stderr and the requested command continues with the available installation. Manual update failures return a nonzero exit code. The remote check has a five-second deadline and installation has a three-minute deadline. Help and `shell-init` work without checking the network. Update diagnostics and npm output go to stderr, preserving command stdout.
+
+Automatic updates are enabled by default for global installations. Disable them for a session with:
+
+```powershell
+$env:AGENT_PROFILES_AUTO_UPDATE = '0'
+```
+
+```sh
+export AGENT_PROFILES_AUTO_UPDATE=0
+```
+
+The explicit `agent-profiles update` command still works when automatic updates are disabled. Source checkouts and npm-linked checkouts are not automatically overwritten; invoking `update` from a checkout updates the default global npm installation. Profile storage is separate from the installed package and is preserved during updates.
+
+Update metadata and an exclusive lock are stored under the current config root in `agent-profiles/updates`. Concurrent updates are rejected with the lock path; after an interrupted update, remove that lock only when no updater is running. Publish changes to the repository's `main` branch to make them available to installed clients.
 
 ## Usage
 
@@ -55,6 +81,29 @@ agent-profiles codex help
 ```
 
 `run` does not change the active profile. `use` affects only new sessions. Each name can contain up to 64 ASCII letters, numbers, `_`, or `-`, and must begin with a letter or number. Windows reserved names such as `CON`, `NUL`, and `COM1`, as well as duplicates that differ only by letter case, are rejected on every platform. Use the exact spelling shown by `list`.
+
+### Command reference
+
+| Command | What it does |
+| --- | --- |
+| `agent-profiles help` | Shows general help, including the supported agent and top-level commands. `-h` and `--help` are aliases. |
+| `agent-profiles update` | Checks the `main` branch and installs its latest commit into the global npm installation. Use it to update immediately instead of waiting for the automatic check. |
+| `agent-profiles codex help` | Shows help for the Codex profile commands. `-h` and `--help` are aliases. |
+| `agent-profiles codex create NAME` | Creates an isolated `CODEX_HOME` directory named `NAME`, selects it when there is no active profile, and opens `codex login` for that profile. |
+| `agent-profiles codex create NAME --no-login` | Creates the profile without opening sign-in. Use `login` later when you are ready to authenticate. |
+| `agent-profiles codex list` | Lists every managed Codex profile, its home directory, and marks the active one with `*`. |
+| `agent-profiles codex use NAME` | Makes `NAME` the active profile. New `exec` sessions and the shell integration use it; an already-running Codex session is unchanged. |
+| `agent-profiles codex current` | Prints the active profile name and its `CODEX_HOME` path. |
+| `agent-profiles codex login [NAME]` | Opens `codex login` using `NAME`; without `NAME`, it uses the active profile. |
+| `agent-profiles codex exec [--] [ARGS]` | Runs Codex with the active profile. Arguments after optional `--` are passed directly to Codex; without arguments it opens the interactive CLI. |
+| `agent-profiles codex run NAME [--] [ARGS]` | Runs Codex with `NAME` for this command only, without changing the active profile. For example, `agent-profiles codex run work -- login status`. |
+| `agent-profiles codex remove NAME --force` | Deletes one managed profile and its directory. `--force` is mandatory because the directory can contain credentials and history. If it was active, another remaining profile becomes active. |
+| `agent-profiles codex remove-all --force` | Deletes every managed Codex profile and clears the active profile. `--force` is mandatory; the default Codex home and unregistered directories are left untouched. |
+| `agent-profiles codex shell-init bash` | Prints Bash startup code that makes `codex` run through the active profile. |
+| `agent-profiles codex shell-init zsh` | Prints equivalent Zsh startup code. |
+| `agent-profiles codex shell-init powershell` | Prints equivalent PowerShell startup code. `pwsh` is accepted as an alias when requesting the output directly. |
+
+`--` separates Agent Profiles options from arguments intended for Codex. It is optional for `exec` and `run`, but recommended when the first Codex argument could look like an Agent Profiles option.
 
 To remove all Codex profiles managed by Agent Profiles:
 

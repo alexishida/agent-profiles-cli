@@ -1,6 +1,7 @@
 {
   "name": "agent-profiles",
   "description": "Manage isolated Codex CLI account profiles on Windows, Linux, and WSL.",
+  "repository": { "type": "git", "url": "git+https://github.com/alexishida/agent-profiles-cli.git" },
   "version": "0.0.1",
   "author": {
     "name": "Alex Ishida",
@@ -11,5 +12,5 @@
   "bin": { "agent-profiles": "./bin/agent-profiles.mjs" },
   "files": ["bin/", "lib/", "README.md"],
   "engines": { "node": ">=22" },
-  "scripts": { "test": "node --test", "check": "node --check bin/agent-profiles.mjs && node --check lib/store.mjs && node --check lib/codex.mjs" }
+  "scripts": { "test": "node --test", "check": "node --check bin/agent-profiles.mjs && node --check lib/store.mjs && node --check lib/codex.mjs && node --check lib/update.mjs" }
 }

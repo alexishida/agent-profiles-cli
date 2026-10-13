@@ -16,7 +16,7 @@ test('a package installed into a temporary prefix works and integrates with the 
     path.join(path.dirname(process.execPath), '..', 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js'),
   ].find(file => file && fs.existsSync(file));
   assert.ok(npmCli, 'Run the tests with npm test (npm is required to validate the package).');
-  const env = { ...process.env, XDG_CONFIG_HOME: path.join(tmp, 'config'), XDG_DATA_HOME: path.join(tmp, 'data'), npm_config_update_notifier: 'false' };
+  const env = { ...process.env, XDG_CONFIG_HOME: path.join(tmp, 'config'), XDG_DATA_HOME: path.join(tmp, 'data'), npm_config_update_notifier: 'false', AGENT_PROFILES_AUTO_UPDATE: '0' };
   const npm = (args, cwd) => {
     const result = spawnSync(process.execPath, [npmCli, ...args], { env, cwd, encoding: 'utf8' });
     assert.equal(result.status, 0, `${args.join(' ')}: ${result.error || result.stderr}`);
@@ -28,6 +28,7 @@ test('a package installed into a temporary prefix works and integrates with the 
   assert.ok(packed.files.some(file => file.path === 'bin/agent-profiles.mjs'));
   assert.ok(packed.files.some(file => file.path === 'lib/store.mjs'));
   assert.ok(packed.files.some(file => file.path === 'lib/codex.mjs'));
+  assert.ok(packed.files.some(file => file.path === 'lib/update.mjs'));
   assert.equal(packed.files.some(file => file.path.startsWith('test/')), false);
   const prefix = path.join(tmp, 'install');
   npm(['install', '--global', '--prefix', prefix, '--ignore-scripts', '--no-audit', '--no-fund', '--offline', path.join(tmp, packed.filename)], tmp);
